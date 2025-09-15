@@ -10,19 +10,21 @@
   .wrap{min-height:100%;display:grid;place-items:center}
   .puzzle{
     position:relative;width:var(--size);height:var(--size);
-    image-rendering: pixelated; /* keeps QR crisp */
+    image-rendering: pixelated;
     -webkit-user-select:none;user-select:none;
     -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
   }
   /* Real QR image sits underneath tiles */
-  #qr{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter: none}
+  #qr{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    filter: invert(1); /* ✅ makes QR white */
+  }
 
-  /* Tile grid on top */
   .grid{
     position:absolute;inset:0;display:grid;gap:1px;
     grid-template-columns: repeat(var(--grid), 1fr);
     grid-template-rows: repeat(var(--grid), 1fr);
-    background:#000; /* gaps are black lines */
+    background:#000;
     pointer-events:auto;
   }
   .tile{
@@ -31,7 +33,7 @@
     outline:1px solid #000;
     transition: box-shadow .12s ease;
   }
-  .tile.sel{ box-shadow: 0 0 0 3px #39ff14 inset; } /* neon highlight */
+  .tile.sel{ box-shadow: 0 0 0 3px #39ff14 inset; }
   .hidden{ opacity:0; pointer-events:none; }
   .banner{
     position:absolute;left:50%;top:calc(100% + 14px);transform:translateX(-50%);
@@ -48,7 +50,6 @@
 <body>
 <div class="wrap">
   <div class="puzzle" id="puzzle" aria-label="QR Tile Puzzle">
-    <!-- ✅ Using your uploaded QR file -->
     <img id="qr" alt="QR code" src="dbccdbc2-abc4-4d75-b007-61808a181c22.png">
     <div class="grid" id="grid" aria-live="polite"></div>
     <div class="banner" id="banner">Tap two tiles to swap. Solve to reveal QR.</div>
