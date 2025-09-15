@@ -2,147 +2,88 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>QR Puzzle – iOS Friendly (Tap to Swap)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QR Puzzle</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  :root { --size: 320px; --grid: 4; } /* <- change grid 3/4/5 etc. */
-  html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Arial,sans-serif}
-  .wrap{min-height:100%;display:grid;place-items:center}
-  .puzzle{
-    position:relative;width:var(--size);height:var(--size);
-    image-rendering: pixelated;
-    -webkit-user-select:none;user-select:none;
-    -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
-  }
-  /* Real QR image sits underneath tiles */
-  #qr{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-    filter: invert(1); /* ✅ makes QR white */
-  }
-
-  .grid{
-    position:absolute;inset:0;display:grid;gap:1px;
-    grid-template-columns: repeat(var(--grid), 1fr);
-    grid-template-rows: repeat(var(--grid), 1fr);
+  body {
+    margin:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
     background:#000;
-    pointer-events:auto;
   }
-  .tile{
-    background:#111;
-    background-size: var(--size) var(--size);
-    outline:1px solid #000;
-    transition: box-shadow .12s ease;
+  .puzzle {
+    display:grid;
+    grid-template-columns: repeat(4, 1fr); /* change 4 → 3 for 3×3 */
+    grid-template-rows: repeat(4, 1fr);
+    gap:1px;
+    width:320px;
+    height:320px;
+    background:#000;
   }
-  .tile.sel{ box-shadow: 0 0 0 3px #39ff14 inset; }
-  .hidden{ opacity:0; pointer-events:none; }
-  .banner{
-    position:absolute;left:50%;top:calc(100% + 14px);transform:translateX(-50%);
-    font-size:.95rem;color:#aaa;text-align:center
+  .tile {
+    background-image:url("qr.png"); /* 🔧 replace with your QR image */
+    background-size:320px 320px;
+    cursor:pointer;
   }
-  .toast{
-    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
-    background:#111;border:1px solid #333;padding:10px 14px;border-radius:10px;color:#fff;
-    font-size:.9rem;opacity:0;transition:opacity .2s ease
+  .hidden {
+    visibility:hidden;
   }
-  .toast.show{opacity:1}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="puzzle" id="puzzle" aria-label="QR Tile Puzzle">
-    <img id="qr" alt="QR code" src="dbccdbc2-abc4-4d75-b007-61808a181c22.png">
-    <div class="grid" id="grid" aria-live="polite"></div>
-    <div class="banner" id="banner">Tap two tiles to swap. Solve to reveal QR.</div>
-  </div>
-</div>
-<div class="toast" id="toast">Solved! Scan the QR.</div>
-
+<div class="puzzle" id="puzzle"></div>
 <script>
-const GRID = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid')) || 4;
-const gridEl = document.getElementById('grid');
-const qrEl   = document.getElementById('qr');
-const toast  = document.getElementById('toast');
-const puzzle = document.getElementById('puzzle');
+const GRID = 4; // change 4 → 3 for 3×3
+const SIZE = 320;
+const puzzle = document.getElementById("puzzle");
 
-let order = [];
-let sizePx;
-let sel = null;
-let solvedOnce = false;
-
-function init() {
-  if (!qrEl.complete) {
-    qrEl.addEventListener('load', build);
-  } else {
-    build();
-  }
-  window.addEventListener('resize', syncSize);
-}
-
-function syncSize(){
-  sizePx = Math.round(puzzle.getBoundingClientRect().width);
-  gridEl.style.setProperty('--size', sizePx + 'px');
-}
+let order = [...Array(GRID*GRID).keys()];
+order.sort(()=>Math.random()-0.5); // shuffle
 
 function build(){
-  syncSize();
-  const N = GRID * GRID;
-  order = Array.from({length:N}, (_,i)=>i);
-  for (let i = 0; i < N*6; i++){
-    const a = Math.floor(Math.random()*N);
-    const b = Math.floor(Math.random()*N);
-    [order[a], order[b]] = [order[b], order[a]];
+  puzzle.innerHTML="";
+  for(let pos=0; pos<order.length; pos++){
+    const idx = order[pos];
+    const tile = document.createElement("div");
+    tile.className="tile";
+    tile.style.backgroundPosition = 
+      `${-(idx%GRID)*(SIZE/GRID)}px ${-Math.floor(idx/GRID)*(SIZE/GRID)}px`;
+    tile.style.width = SIZE/GRID+"px";
+    tile.style.height = SIZE/GRID+"px";
+    tile.dataset.pos=pos;
+    tile.dataset.idx=idx;
+    tile.addEventListener("click",onTap);
+    puzzle.appendChild(tile);
   }
-  gridEl.innerHTML = '';
-  const src = qrEl.currentSrc || qrEl.src;
-  for (let i = 0; i < N; i++){
-    const tile = document.createElement('div');
-    tile.className = 'tile';
-    tile.dataset.pos = i;
-    tile.dataset.idx = order[i];
-    const col = order[i] % GRID;
-    const row = Math.floor(order[i] / GRID);
-    tile.style.backgroundImage = `url('${src}')`;
-    tile.style.backgroundSize  = '100% 100%';
-    tile.style.backgroundPosition = `${(col*(100/(GRID-1)))}% ${(row*(100/(GRID-1)))}%`;
-    gridEl.appendChild(tile);
-  }
-  gridEl.addEventListener('click', onTap, {passive:true});
 }
 
+let sel=null;
 function onTap(e){
-  const t = e.target.closest('.tile');
-  if (!t || solvedOnce) return;
-  if (!sel){ sel = t; sel.classList.add('sel'); return; }
-  if (t === sel){ sel.classList.remove('sel'); sel = null; return; }
-  const aIdx = sel.dataset.idx, bIdx = t.dataset.idx;
-  sel.dataset.idx = bIdx; t.dataset.idx = aIdx;
-  const selBg = sel.style.backgroundPosition;
-  sel.style.backgroundPosition = t.style.backgroundPosition;
-  t.style.backgroundPosition = selBg;
-  sel.classList.remove('sel'); sel = null;
-  const tiles = gridEl.children;
-  let ok = true;
-  for (let i = 0; i < tiles.length; i++){
-    if (tiles[i].dataset.idx != tiles[i].dataset.pos) { ok = false; break; }
+  const t=e.target;
+  if(!sel){ sel=t; sel.style.outline="2px solid lime"; return; }
+  // swap idx
+  const tmp=sel.dataset.idx;
+  sel.dataset.idx=t.dataset.idx;
+  t.dataset.idx=tmp;
+  // swap bg positions
+  const tmpPos=sel.style.backgroundPosition;
+  sel.style.backgroundPosition=t.style.backgroundPosition;
+  t.style.backgroundPosition=tmpPos;
+  sel.style.outline=""; sel=null;
+  checkSolved();
+}
+
+function checkSolved(){
+  const tiles=[...puzzle.children];
+  for(let i=0;i<tiles.length;i++){
+    if(tiles[i].dataset.idx!=i) return;
   }
-  if (ok) onSolved();
+  alert("✅ Puzzle solved! Scan the QR.");
 }
 
-function onSolved(){
-  solvedOnce = true;
-  gridEl.classList.add('hidden');
-  showToast('Solved! Scan the QR.');
-  if (navigator.vibrate) navigator.vibrate(60);
-}
-
-let toastTimer;
-function showToast(msg){
-  toast.textContent = msg;
-  toast.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=> toast.classList.remove('show'), 1800);
-}
-init();
+build();
 </script>
 </body>
 </html>
