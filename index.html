@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Tech Squid Game</title>
+<title>QR Puzzle – iOS Friendly (Tap to Swap)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root { --size: 320px; --grid: 4; } /* <- change grid 3/4/5 etc. */
@@ -48,8 +48,8 @@
 <body>
 <div class="wrap">
   <div class="puzzle" id="puzzle" aria-label="QR Tile Puzzle">
-    <!-- Replace src with YOUR QR image (same-origin or data URL) -->
-    <img id="qr" alt="QR code" src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Link_pra_pagina_principal_da_Wikipedia-PT_em_codigo_QR_b.svg/420px-Link_pra_pagina_principal_da_Wikipedia-PT_em_codigo_QR_b.svg.png">
+    <!-- ✅ Using your uploaded QR file -->
+    <img id="qr" alt="QR code" src="dbccdbc2-abc4-4d75-b007-61808a181c22.png">
     <div class="grid" id="grid" aria-live="polite"></div>
     <div class="banner" id="banner">Tap two tiles to swap. Solve to reveal QR.</div>
   </div>
@@ -57,22 +57,18 @@
 <div class="toast" id="toast">Solved! Scan the QR.</div>
 
 <script>
-/* ===== CONFIG ===== */
 const GRID = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid')) || 4;
-/* ================== */
-
 const gridEl = document.getElementById('grid');
 const qrEl   = document.getElementById('qr');
 const toast  = document.getElementById('toast');
 const puzzle = document.getElementById('puzzle');
 
-let order = [];     // current tile order, holds indices 0..N-1
-let sizePx;         // pixel size of puzzle (square)
-let sel = null;     // currently selected tile element
+let order = [];
+let sizePx;
+let sel = null;
 let solvedOnce = false;
 
 function init() {
-  // ensure image loads for proper background positioning on tiles
   if (!qrEl.complete) {
     qrEl.addEventListener('load', build);
   } else {
@@ -82,83 +78,47 @@ function init() {
 }
 
 function syncSize(){
-  // Keep background-size perfectly matching the container size (for crisp alignment)
   sizePx = Math.round(puzzle.getBoundingClientRect().width);
   gridEl.style.setProperty('--size', sizePx + 'px');
 }
 
 function build(){
-  // size sync
   syncSize();
-
   const N = GRID * GRID;
   order = Array.from({length:N}, (_,i)=>i);
-
-  // scramble with random swaps (tap-to-swap puzzle is always solvable)
   for (let i = 0; i < N*6; i++){
     const a = Math.floor(Math.random()*N);
     const b = Math.floor(Math.random()*N);
     [order[a], order[b]] = [order[b], order[a]];
   }
-
-  // create tiles
   gridEl.innerHTML = '';
-  const src = qrEl.currentSrc || qrEl.src; // iOS-safe
-  const tileSize = sizePx / GRID;
-
+  const src = qrEl.currentSrc || qrEl.src;
   for (let i = 0; i < N; i++){
     const tile = document.createElement('div');
     tile.className = 'tile';
-    tile.dataset.pos = i;          // logical position in grid (0..N-1)
-    tile.dataset.idx = order[i];   // which slice of the image this tile shows
-    // compute background offset for the slice (based on original index)
+    tile.dataset.pos = i;
+    tile.dataset.idx = order[i];
     const col = order[i] % GRID;
     const row = Math.floor(order[i] / GRID);
-    const bx = -(col * (100 / (GRID-0))) + '%'; // percent works regardless of pixel size
-    const by = -(row * (100 / (GRID-0))) + '%';
-
-    // use the underlying image as background-image (same URL)
     tile.style.backgroundImage = `url('${src}')`;
     tile.style.backgroundSize  = '100% 100%';
-    // position via CSS grid
-    gridEl.appendChild(tile);
-
-    // store intended bg-position in CSS variables for reflow-free swap
     tile.style.backgroundPosition = `${(col*(100/(GRID-1)))}% ${(row*(100/(GRID-1)))}%`;
+    gridEl.appendChild(tile);
   }
-
-  // tap-to-swap (click also works on desktop)
-  gridEl.addEventListener('click', onTap, {passive:true}); // safe for iOS
+  gridEl.addEventListener('click', onTap, {passive:true});
 }
 
 function onTap(e){
   const t = e.target.closest('.tile');
   if (!t || solvedOnce) return;
-
-  if (!sel){
-    sel = t; sel.classList.add('sel');
-    return;
-  }
-
-  if (t === sel){
-    // deselect
-    sel.classList.remove('sel'); sel = null; return;
-  }
-
-  // swap dataset idx (which slice they show)
-  const aIdx = sel.dataset.idx;
-  const bIdx = t.dataset.idx;
-  sel.dataset.idx = bIdx;
-  t.dataset.idx = aIdx;
-
-  // also swap background positions to reflect change
+  if (!sel){ sel = t; sel.classList.add('sel'); return; }
+  if (t === sel){ sel.classList.remove('sel'); sel = null; return; }
+  const aIdx = sel.dataset.idx, bIdx = t.dataset.idx;
+  sel.dataset.idx = bIdx; t.dataset.idx = aIdx;
   const selBg = sel.style.backgroundPosition;
   sel.style.backgroundPosition = t.style.backgroundPosition;
   t.style.backgroundPosition = selBg;
-
   sel.classList.remove('sel'); sel = null;
-
-  // check solved: each tile's dataset.idx should match its dataset.pos
   const tiles = gridEl.children;
   let ok = true;
   for (let i = 0; i < tiles.length; i++){
@@ -169,10 +129,8 @@ function onTap(e){
 
 function onSolved(){
   solvedOnce = true;
-  // hide tiles so the real QR is fully visible/scannable
   gridEl.classList.add('hidden');
   showToast('Solved! Scan the QR.');
-  // optional: vibrate on supported devices
   if (navigator.vibrate) navigator.vibrate(60);
 }
 
@@ -183,8 +141,6 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> toast.classList.remove('show'), 1800);
 }
-
-// Ensure image is same-origin or data: URL to avoid any iOS quirks.
 init();
 </script>
 </body>
